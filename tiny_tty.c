@@ -65,9 +65,10 @@ static void tiny_timer(struct timer_list *timer)
 {
 	struct tiny_serial *tiny = tiny_timer_data;
 	struct tty_struct *tty;
-	int i;
 	char data[1] = {TINY_DATA_CHARACTER};
 	int data_size = 1;
+
+	printk(KERN_DEBUG "tiny tty: %s %p\n", __FUNCTION__, timer);
 
 	if (!tiny)
 		return;
@@ -90,6 +91,8 @@ static int tiny_open(struct tty_struct *tty, struct file *file)
 	struct tiny_serial *tiny;
 	struct timer_list *timer;
 	int index;
+
+	printk(KERN_DEBUG "tiny tty: %s %p %p\n", __FUNCTION__, tty, file);
 
 	/* initialize the pointer in case something fails */
 	tty->driver_data = NULL;
@@ -142,6 +145,8 @@ static int tiny_open(struct tty_struct *tty, struct file *file)
 
 static void do_close(struct tiny_serial *tiny)
 {
+	printk(KERN_DEBUG "tiny tty: %s %p\n", __FUNCTION__, tiny);
+
 	down(&tiny->sem);
 
 	if (!tiny->open_count) {
@@ -165,6 +170,8 @@ static void tiny_close(struct tty_struct *tty, struct file *file)
 {
 	struct tiny_serial *tiny = tty->driver_data;
 
+	printk(KERN_DEBUG "tiny tty: %s %p %p\n", __FUNCTION__, tty, file);
+
 	if (tiny)
 		do_close(tiny);
 }	
@@ -175,6 +182,9 @@ static ssize_t tiny_write(struct tty_struct *tty,
 	struct tiny_serial *tiny = tty->driver_data;
 	int i;
 	int retval = -EINVAL;
+
+	printk(KERN_DEBUG "tiny tty: %s %p %p %zu\n", __FUNCTION__, tty, buffer, 
+            count);
 
 	if (!tiny)
 		return -ENODEV;
@@ -203,6 +213,8 @@ static unsigned int tiny_write_room(struct tty_struct *tty)
 	struct tiny_serial *tiny = tty->driver_data;
 	int room = -EINVAL;
 
+	printk(KERN_DEBUG "tiny tty: %s %p\n", __FUNCTION__, tty);
+
 	if (!tiny)
 		return -ENODEV;
 
@@ -227,6 +239,8 @@ static void tiny_set_termios(struct tty_struct *tty,
                              const struct ktermios *old_termios)
 {
 	unsigned int cflag;
+
+	printk(KERN_DEBUG "tiny tty: %s %p %p\n", __FUNCTION__, tty, old_termios);
 
 	cflag = tty->termios.c_cflag;
 
@@ -321,6 +335,8 @@ static int tiny_tiocmget(struct tty_struct *tty)
 	unsigned int msr = tiny->msr;
 	unsigned int mcr = tiny->mcr;
 
+	printk(KERN_DEBUG "tiny tty: %s %p\n", __FUNCTION__, tty);
+
 	result = ((mcr & MCR_DTR)  ? TIOCM_DTR  : 0) |	/* DTR is set */
              ((mcr & MCR_RTS)  ? TIOCM_RTS  : 0) |	/* RTS is set */
              ((mcr & MCR_LOOP) ? TIOCM_LOOP : 0) |	/* LOOP is set */
@@ -337,6 +353,8 @@ static int tiny_tiocmset(struct tty_struct *tty, unsigned int set,
 {
 	struct tiny_serial *tiny = tty->driver_data;
 	unsigned int mcr = tiny->mcr;
+
+	printk(KERN_DEBUG "tiny tty: %s %p %x %x\n", __FUNCTION__, tty, set, clear);
 
 	if (set & TIOCM_RTS)
 		mcr |= MCR_RTS;
@@ -357,6 +375,8 @@ static int tiny_ioctl_tiocgserial(struct tty_struct *tty, unsigned int cmd,
                                   unsigned long arg)
 {
 	struct tiny_serial *tiny = tty->driver_data;
+
+	printk(KERN_DEBUG "tiny tty: %s %p %u %lu\n", __FUNCTION__, tty, cmd, arg);
 
 	if (cmd == TIOCGSERIAL) {
 		struct serial_struct tmp;
@@ -390,6 +410,8 @@ static int tiny_ioctl_tiocmiwait(struct tty_struct *tty, unsigned int cmd,
                                  unsigned long arg)
 {
 	struct tiny_serial *tiny = tty->driver_data;
+
+	printk(KERN_DEBUG "tiny tty: %s %p %u %lu\n", __FUNCTION__, tty, cmd, arg);
 
 	if (cmd == TIOCMIWAIT) {
 		DECLARE_WAITQUEUE(wait, current);
@@ -429,6 +451,8 @@ static int tiny_ioctl_tiocgicount(struct tty_struct *tty, unsigned int cmd,
 {
 	struct tiny_serial *tiny = tty->driver_data;
 
+	printk(KERN_DEBUG "tiny tty: %s %p %u %lu\n", __FUNCTION__, tty, cmd, arg);
+
 	if (cmd == TIOCGICOUNT) {
 		struct async_icount cnow = tiny->icount;
 		struct serial_icounter_struct icount;
@@ -456,6 +480,8 @@ static int tiny_ioctl_tiocgicount(struct tty_struct *tty, unsigned int cmd,
 static int tiny_ioctl(struct tty_struct *tty, unsigned int cmd,
                       unsigned long arg)
 {
+	printk(KERN_DEBUG "tiny tty: %s %p %u %lu\n", __FUNCTION__, tty, cmd, arg);
+
 	switch (cmd) {
 	case TIOCGSERIAL:
 		return tiny_ioctl_tiocgserial(tty, cmd, arg);
@@ -486,13 +512,18 @@ static int __init tiny_init(void)
 	int retval;
 	int i;
 
+	printk(KERN_DEBUG "tiny tty: %s\n", __FUNCTION__);
+
 	/* allocate ports */
 	tiny_ports = kmalloc(TINY_TTY_MINORS * sizeof (struct tty_port), GFP_KERNEL);
 
 	/* allocate the tty driver */
 	tiny_tty_driver = tty_alloc_driver(TINY_TTY_MINORS, 0);
 	if (!tiny_tty_driver)
+	{
+		printk(KERN_ERR "tiny tty: failed to allocate tiny tty driver");
 		return -ENOMEM;
+	}
 
 	/* initialize the tty driver */
 	tiny_tty_driver->owner = THIS_MODULE;
@@ -515,11 +546,12 @@ static int __init tiny_init(void)
 
 	retval = tty_register_driver(tiny_tty_driver);
 	if (retval) {
-		printk(KERN_ERR "failed to register tiny tty driver");
+		printk(KERN_ERR "tiny tty: failed to register tiny tty driver");
 		tty_driver_kref_put(tiny_tty_driver);
 		return retval;
 	}
 
+	printk(KERN_INFO "tiny tty: " DRIVER_DESC " " DRIVER_VERSION);
 	return retval;
 }
 
@@ -527,6 +559,8 @@ static void __exit tiny_exit(void)
 {
 	struct tiny_serial *tiny;
 	int i;
+
+	printk(KERN_DEBUG "tiny tty: %s\n", __FUNCTION__);
 
 	for (i = 0; i < TINY_TTY_MINORS; ++i)
 	{
@@ -557,3 +591,5 @@ static void __exit tiny_exit(void)
 
 module_init(tiny_init);
 module_exit(tiny_exit);
+/* vim: ts=8 sts=8 sw=8 noet
+ * end of file */
