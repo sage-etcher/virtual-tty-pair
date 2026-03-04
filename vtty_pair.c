@@ -364,7 +364,7 @@ static int vttyp_tiocmget(struct tty_struct *tty)
 }
 
 static int vttyp_tiocmset(struct tty_struct *tty, unsigned int set,
-                         unsigned int clear)
+                          unsigned int clear)
 {
 	struct vttyp_serial *port_context = tty->driver_data;
 	unsigned int mcr = port_context->mcr;
