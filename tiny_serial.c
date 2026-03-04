@@ -43,8 +43,10 @@ MODULE_LICENSE("GPL");
 #define MY_NAME			TINY_SERIAL_NAME
 
 static struct timer_list *timer;
+static struct uart_port *timer_data = NULL;
 
-static void tiny_stop_tx(struct uart_port *port, unsigned int tty_stop)
+//static void tiny_stop_tx(struct uart_port *port, unsigned int tty_stop)
+static void tiny_stop_tx(struct uart_port *port)
 {
 }
 
@@ -58,7 +60,7 @@ static void tiny_enable_ms(struct uart_port *port)
 
 static void tiny_tx_chars(struct uart_port *port)
 {
-	struct circ_buf *xmit = &port->info->xmit;
+	struct circ_buf *xmit = &port->state->xmit;
 	int count;
 
 	if (port->x_char) {
@@ -68,7 +70,7 @@ static void tiny_tx_chars(struct uart_port *port)
 		return;
 	}
 	if (uart_circ_empty(xmit) || uart_tx_stopped(port)) {
-		tiny_stop_tx(port, 0);
+		tiny_stop_tx(port);
 		return;
 	}
 
@@ -85,33 +87,34 @@ static void tiny_tx_chars(struct uart_port *port)
 		uart_write_wakeup(port);
 
 	if (uart_circ_empty(xmit))
-		tiny_stop_tx(port, 0);
+		tiny_stop_tx(port);
 }
 
-static void tiny_start_tx(struct uart_port *port, unsigned int tty_start)
+//static void tiny_start_tx(struct uart_port *port, unsigned int tty_start)
+static void tiny_start_tx(struct uart_port *port)
 {
 }
 
-static void tiny_timer(unsigned long data)
+static void tiny_timer(struct timer_list *timer)
 {
 	struct uart_port *port;
 	struct tty_struct *tty;
 
 
-	port = (struct uart_port *)data;
+	port = timer_data;
 	if (!port)
 		return;
-	if (!port->info)
+	if (!port->state)
 		return;
-	tty = port->info->port.tty;
+	tty = port->state->port.tty;
 	if (!tty)
 		return;
 
 	/* add one character to the tty port */
 	/* this doesn't actually push the data through unless tty->low_latency is set */
-	tty_insert_flip_char(tty, TINY_DATA_CHARACTER, 0);
+	tty_insert_flip_char(tty->port, TINY_DATA_CHARACTER, 0);
 
-	tty_flip_buffer_push(tty);
+	tty_flip_buffer_push(tty->port);
 
 	/* resubmit the timer again */
 	timer->expires = jiffies + DELAY_TIME;
@@ -139,8 +142,10 @@ static void tiny_break_ctl(struct uart_port *port, int break_state)
 {
 }
 
+//static void tiny_set_termios(struct uart_port *port,
+//			     struct termios *new, struct termios *old)
 static void tiny_set_termios(struct uart_port *port,
-			     struct termios *new, struct termios *old)
+			     struct ktermios *new, const struct ktermios *old)
 {
 	int baud, quot, cflag = new->c_cflag;
 	/* get the byte size */
@@ -199,7 +204,7 @@ static int tiny_startup(struct uart_port *port)
 		if (!timer)
 			return -ENOMEM;
 	}
-	timer->data = (unsigned long)port;
+	timer_data = port;
 	timer->expires = jiffies + DELAY_TIME;
 	timer->function = tiny_timer;
 	add_timer(timer);
@@ -289,3 +294,5 @@ static int __init tiny_init(void)
 }
 
 module_init(tiny_init);
+/* vim: ts=8 sts=8 sw=8 noet
+ * end of file */
