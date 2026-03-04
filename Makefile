@@ -9,21 +9,22 @@ else
   DEBFLAGS = -O2
 endif
 
-CFLAGS += $(DEBFLAGS)
-CFLAGS += -I..
+EXTRA_CFLAGS += $(DEBFLAGS)
 
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 
-obj-m	:= tiny_tty.o
+obj-m	:= vtty_pair.o
 
 else
 
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD       := $(shell pwd)
 
-default:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+default: modules
+
+modules modules_install:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) $@
 
 endif
 
@@ -35,6 +36,7 @@ clean:
 depend .depend dep:
 	$(CC) $(CFLAGS) -M *.c > .depend
 
+.PHONY: default modules modules_install clean depend
 
 ifeq (.depend,$(wildcard .depend))
 include .depend
