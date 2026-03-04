@@ -31,7 +31,8 @@ endif
 
 
 clean:
-	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions
+	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions *.order *.mod
+	rm -rf *.symvers
 
 depend .depend dep:
 	$(CC) $(CFLAGS) -M *.c > .depend
@@ -41,3 +42,4 @@ depend .depend dep:
 ifeq (.depend,$(wildcard .depend))
 include .depend
 endif
+# vim: noet
