@@ -186,7 +186,7 @@ static void vttyp_close(struct tty_struct *tty, struct file *file)
 }	
 
 static ssize_t vttyp_write(struct tty_struct *tty, 
-                          const u8 *buffer, size_t count)
+                           const u8 *buffer, size_t count)
 {
 	struct vttyp_serial *port_context = tty->driver_data;
 	int i;
@@ -245,7 +245,7 @@ exit:
 #define RELEVANT_IFLAG(iflag) ((iflag) & (IGNBRK|BRKINT|IGNPAR|PARMRK|INPCK))
 
 static void vttyp_set_termios(struct tty_struct *tty,
-                             const struct ktermios *old_termios)
+                              const struct ktermios *old_termios)
 {
 	unsigned int cflag;
 
@@ -347,12 +347,12 @@ static int vttyp_tiocmget(struct tty_struct *tty)
 	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p\n", __FUNCTION__, tty);
 
 	result = ((mcr & MCR_DTR)  ? TIOCM_DTR  : 0) |	/* DTR is set */
-             ((mcr & MCR_RTS)  ? TIOCM_RTS  : 0) |	/* RTS is set */
-             ((mcr & MCR_LOOP) ? TIOCM_LOOP : 0) |	/* LOOP is set */
-             ((msr & MSR_CTS)  ? TIOCM_CTS  : 0) |	/* CTS is set */
-             ((msr & MSR_CD)   ? TIOCM_CAR  : 0) |	/* Carrier detect is set*/
-             ((msr & MSR_RI)   ? TIOCM_RI   : 0) |	/* Ring Indicator is set */
-             ((msr & MSR_DSR)  ? TIOCM_DSR  : 0);	/* DSR is set */
+                 ((mcr & MCR_RTS)  ? TIOCM_RTS  : 0) |	/* RTS is set */
+                 ((mcr & MCR_LOOP) ? TIOCM_LOOP : 0) |	/* LOOP is set */
+                 ((msr & MSR_CTS)  ? TIOCM_CTS  : 0) |	/* CTS is set */
+                 ((msr & MSR_CD)   ? TIOCM_CAR  : 0) |	/* Carrier detect is set*/
+                 ((msr & MSR_RI)   ? TIOCM_RI   : 0) |	/* Ring Indicator is set */
+                 ((msr & MSR_DSR)  ? TIOCM_DSR  : 0);	/* DSR is set */
 
 	return result;
 }
@@ -416,7 +416,7 @@ static int vttyp_ioctl_tiocgserial(struct tty_struct *tty, unsigned int cmd,
 }
 
 static int vttyp_ioctl_tiocmiwait(struct tty_struct *tty, unsigned int cmd,
-                                 unsigned long arg)
+                                  unsigned long arg)
 {
 	struct vttyp_serial *port_context = tty->driver_data;
 
@@ -487,7 +487,7 @@ static int vttyp_ioctl_tiocgicount(struct tty_struct *tty, unsigned int cmd,
 
 /* the real vttyp_ioctl function.  The above is done to get the small functions in the book */
 static int vttyp_ioctl(struct tty_struct *tty, unsigned int cmd,
-                      unsigned long arg)
+                       unsigned long arg)
 {
 	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %u %lu\n", __FUNCTION__, tty, cmd, arg);
 
