@@ -101,7 +101,8 @@ static int vttyp_open(struct tty_struct *tty, struct file *file)
 	struct timer_list *timer;
 	int index;
 
-	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %p\n", __FUNCTION__, tty, file);
+	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %p\n", __FUNCTION__, tty,
+		file);
 
 	/* initialize the pointer in case something fails */
 	tty->driver_data = NULL;
@@ -154,7 +155,8 @@ static int vttyp_open(struct tty_struct *tty, struct file *file)
 
 static void do_close(struct vttyp_serial *port_context)
 {
-	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p\n", __FUNCTION__, port_context);
+	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p\n", __FUNCTION__,
+		port_context);
 
 	down(&port_context->sem);
 
@@ -179,7 +181,8 @@ static void vttyp_close(struct tty_struct *tty, struct file *file)
 {
 	struct vttyp_serial *port_context = tty->driver_data;
 
-	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %p\n", __FUNCTION__, tty, file);
+	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %p\n", __FUNCTION__, tty,
+		file);
 
 	if (port_context)
 		do_close(port_context);
@@ -192,8 +195,8 @@ static ssize_t vttyp_write(struct tty_struct *tty,
 	int i;
 	int retval = -EINVAL;
 
-	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %p %zu\n", __FUNCTION__, tty, buffer, 
-            count);
+	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %p %zu\n", __FUNCTION__, tty,
+		buffer, count);
 
 	if (!port_context)
 		return -ENODEV;
@@ -249,7 +252,8 @@ static void vttyp_set_termios(struct tty_struct *tty,
 {
 	unsigned int cflag;
 
-	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %p\n", __FUNCTION__, tty, old_termios);
+	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %p\n", __FUNCTION__, tty,
+		old_termios);
 
 	cflag = tty->termios.c_cflag;
 
@@ -310,15 +314,17 @@ static void vttyp_set_termios(struct tty_struct *tty,
 
 		/* if we are implementing INBOUND XON/XOFF */
 		if (I_IXOFF(tty))
-			PRINTK_DEBUG(KERN_DEBUG " - INBOUND XON/XOFF is enabled, "
-				"XON = %2x, XOFF = %2x", start_char, stop_char);
+			PRINTK_DEBUG(KERN_DEBUG " - INBOUND XON/XOFF is "
+				"enabled, XON = %2x, XOFF = %2x", start_char,
+				stop_char);
 		else
 			printk(KERN_DEBUG" - INBOUND XON/XOFF is disabled");
 
 		/* if we are implementing OUTBOUND XON/XOFF */
 		if (I_IXON(tty))
 			printk(KERN_DEBUG" - OUTBOUND XON/XOFF is enabled, "
-				"XON = %2x, XOFF = %2x", start_char, stop_char);
+				"XON = %2x, XOFF = %2x", start_char, 
+				stop_char);
 		else
 			printk(KERN_DEBUG" - OUTBOUND XON/XOFF is disabled");
 	}
@@ -363,7 +369,8 @@ static int vttyp_tiocmset(struct tty_struct *tty, unsigned int set,
 	struct vttyp_serial *port_context = tty->driver_data;
 	unsigned int mcr = port_context->mcr;
 
-	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %x %x\n", __FUNCTION__, tty, set, clear);
+	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %x %x\n", __FUNCTION__, tty,
+		set, clear);
 
 	if (set & TIOCM_RTS)
 		mcr |= MCR_RTS;
@@ -385,7 +392,8 @@ static int vttyp_ioctl_tiocgserial(struct tty_struct *tty, unsigned int cmd,
 {
 	struct vttyp_serial *port_context = tty->driver_data;
 
-	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %u %lu\n", __FUNCTION__, tty, cmd, arg);
+	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %u %lu\n", __FUNCTION__,
+		tty, cmd, arg);
 
 	if (cmd == TIOCGSERIAL) {
 		struct serial_struct tmp;
@@ -420,7 +428,8 @@ static int vttyp_ioctl_tiocmiwait(struct tty_struct *tty, unsigned int cmd,
 {
 	struct vttyp_serial *port_context = tty->driver_data;
 
-	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %u %lu\n", __FUNCTION__, tty, cmd, arg);
+	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %u %lu\n", __FUNCTION__, tty,
+		cmd, arg);
 
 	if (cmd == TIOCMIWAIT) {
 		DECLARE_WAITQUEUE(wait, current);
@@ -489,7 +498,8 @@ static int vttyp_ioctl_tiocgicount(struct tty_struct *tty, unsigned int cmd,
 static int vttyp_ioctl(struct tty_struct *tty, unsigned int cmd,
                        unsigned long arg)
 {
-	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %u %lu\n", __FUNCTION__, tty, cmd, arg);
+	PRINTK_DEBUG(KERN_DEBUG "vtty_pair: %s %p %u %lu\n", __FUNCTION__, tty,
+		cmd, arg);
 
 	switch (cmd) {
 	case TIOCGSERIAL:
