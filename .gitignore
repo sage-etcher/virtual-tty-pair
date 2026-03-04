@@ -8,3 +8,4 @@ modules.order
 **.o
 .**.cmd
 **.cache/
+.*.o.d

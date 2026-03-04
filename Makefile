@@ -1,5 +1,5 @@
 # Comment/uncomment the following line to disable/enable debugging
-#DEBUG = y
+DEBUG = y
 
 
 # Add your debugging flag (or not) to CFLAGS
@@ -14,7 +14,7 @@ EXTRA_CFLAGS += $(DEBFLAGS)
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 
-obj-m	:= vtty_pair.o
+obj-m	:= vtty_pair.o vserial_pair.o
 
 else
 
