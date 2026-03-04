@@ -12,7 +12,6 @@
  * from some kind of hardware.
  */
 
-#include <linux/config.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/init.h>
@@ -58,12 +57,13 @@ struct tiny_serial {
 	struct async_icount	icount;
 };
 
+static struct tty_port *tiny_ports = NULL;
 static struct tiny_serial *tiny_table[TINY_TTY_MINORS];	/* initially all NULL */
+static struct tiny_serial *tiny_timer_data = NULL;
 
-
-static void tiny_timer(unsigned long timer_data)
+static void tiny_timer(struct timer_list *timer)
 {
-	struct tiny_serial *tiny = (struct tiny_serial *)timer_data;
+	struct tiny_serial *tiny = tiny_timer_data;
 	struct tty_struct *tty;
 	int i;
 	char data[1] = {TINY_DATA_CHARACTER};
@@ -76,9 +76,9 @@ static void tiny_timer(unsigned long timer_data)
 
 	/* send the data to the tty layer for users to read.  This doesn't
 	 * actually push the data through unless tty->low_latency is set */
-	tty_buffer_request_room(tty, data_size);
-	tty_insert_flip_string(tty, data, data_size);
-	tty_flip_buffer_push(tty);
+	tty_buffer_request_room(tty->port, data_size);
+	tty_insert_flip_string(tty->port, data, data_size);
+	tty_flip_buffer_push(tty->port);
 
 	/* resubmit the timer again */
 	tiny->timer->expires = jiffies + DELAY_TIME;
@@ -103,7 +103,7 @@ static int tiny_open(struct tty_struct *tty, struct file *file)
 		if (!tiny)
 			return -ENOMEM;
 
-		init_MUTEX(&tiny->sem);
+		sema_init(&tiny->sem, 1);
 		tiny->open_count = 0;
 		tiny->timer = NULL;
 
@@ -130,7 +130,7 @@ static int tiny_open(struct tty_struct *tty, struct file *file)
 			}
 			tiny->timer = timer;
 		}
-		tiny->timer->data = (unsigned long )tiny;
+		tiny_timer_data = tiny;
 		tiny->timer->expires = jiffies + DELAY_TIME;
 		tiny->timer->function = tiny_timer;
 		add_timer(tiny->timer);
@@ -169,8 +169,8 @@ static void tiny_close(struct tty_struct *tty, struct file *file)
 		do_close(tiny);
 }	
 
-static int tiny_write(struct tty_struct *tty, 
-		      const unsigned char *buffer, int count)
+static ssize_t tiny_write(struct tty_struct *tty, 
+                          const u8 *buffer, size_t count)
 {
 	struct tiny_serial *tiny = tty->driver_data;
 	int i;
@@ -198,7 +198,7 @@ exit:
 	return retval;
 }
 
-static int tiny_write_room(struct tty_struct *tty) 
+static unsigned int tiny_write_room(struct tty_struct *tty) 
 {
 	struct tiny_serial *tiny = tty->driver_data;
 	int room = -EINVAL;
@@ -223,16 +223,17 @@ exit:
 
 #define RELEVANT_IFLAG(iflag) ((iflag) & (IGNBRK|BRKINT|IGNPAR|PARMRK|INPCK))
 
-static void tiny_set_termios(struct tty_struct *tty, struct termios *old_termios)
+static void tiny_set_termios(struct tty_struct *tty,
+                             const struct ktermios *old_termios)
 {
 	unsigned int cflag;
 
-	cflag = tty->termios->c_cflag;
+	cflag = tty->termios.c_cflag;
 
 	/* check that they really want us to change something */
 	if (old_termios) {
 		if ((cflag == old_termios->c_cflag) &&
-		    (RELEVANT_IFLAG(tty->termios->c_iflag) == 
+		    (RELEVANT_IFLAG(tty->termios.c_iflag) == 
 		     RELEVANT_IFLAG(old_termios->c_iflag))) {
 			printk(KERN_DEBUG " - nothing to change...\n");
 			return;
@@ -312,7 +313,7 @@ static void tiny_set_termios(struct tty_struct *tty, struct termios *old_termios
 #define MSR_RI		0x20
 #define MSR_DSR		0x40
 
-static int tiny_tiocmget(struct tty_struct *tty, struct file *file)
+static int tiny_tiocmget(struct tty_struct *tty)
 {
 	struct tiny_serial *tiny = tty->driver_data;
 
@@ -331,8 +332,8 @@ static int tiny_tiocmget(struct tty_struct *tty, struct file *file)
 	return result;
 }
 
-static int tiny_tiocmset(struct tty_struct *tty, struct file *file,
-                         unsigned int set, unsigned int clear)
+static int tiny_tiocmset(struct tty_struct *tty, unsigned int set,
+                         unsigned int clear)
 {
 	struct tiny_serial *tiny = tty->driver_data;
 	unsigned int mcr = tiny->mcr;
@@ -352,39 +353,8 @@ static int tiny_tiocmset(struct tty_struct *tty, struct file *file,
 	return 0;
 }
 
-static int tiny_read_proc(char *page, char **start, off_t off, int count,
-                          int *eof, void *data)
-{
-	struct tiny_serial *tiny;
-	off_t begin = 0;
-	int length = 0;
-	int i;
-
-	length += sprintf(page, "tinyserinfo:1.0 driver:%s\n", DRIVER_VERSION);
-	for (i = 0; i < TINY_TTY_MINORS && length < PAGE_SIZE; ++i) {
-		tiny = tiny_table[i];
-		if (tiny == NULL)
-			continue;
-
-		length += sprintf(page+length, "%d\n", i);
-		if ((length + begin) > (off + count))
-			goto done;
-		if ((length + begin) < off) {
-			begin += length;
-			length = 0;
-		}
-	}
-	*eof = 1;
-done:
-	if (off >= (length + begin))
-		return 0;
-	*start = page + (off-begin);
-	return (count < begin+length-off) ? count : begin + length-off;
-}
-
-#define tiny_ioctl tiny_ioctl_tiocgserial
-static int tiny_ioctl(struct tty_struct *tty, struct file *file,
-                      unsigned int cmd, unsigned long arg)
+static int tiny_ioctl_tiocgserial(struct tty_struct *tty, unsigned int cmd,
+                                  unsigned long arg)
 {
 	struct tiny_serial *tiny = tty->driver_data;
 
@@ -415,11 +385,9 @@ static int tiny_ioctl(struct tty_struct *tty, struct file *file,
 	}
 	return -ENOIOCTLCMD;
 }
-#undef tiny_ioctl
 
-#define tiny_ioctl tiny_ioctl_tiocmiwait
-static int tiny_ioctl(struct tty_struct *tty, struct file *file,
-                      unsigned int cmd, unsigned long arg)
+static int tiny_ioctl_tiocmiwait(struct tty_struct *tty, unsigned int cmd,
+                                 unsigned long arg)
 {
 	struct tiny_serial *tiny = tty->driver_data;
 
@@ -455,11 +423,9 @@ static int tiny_ioctl(struct tty_struct *tty, struct file *file,
 	}
 	return -ENOIOCTLCMD;
 }
-#undef tiny_ioctl
 
-#define tiny_ioctl tiny_ioctl_tiocgicount
-static int tiny_ioctl(struct tty_struct *tty, struct file *file,
-                      unsigned int cmd, unsigned long arg)
+static int tiny_ioctl_tiocgicount(struct tty_struct *tty, unsigned int cmd, 
+                                  unsigned long arg)
 {
 	struct tiny_serial *tiny = tty->driver_data;
 
@@ -485,19 +451,18 @@ static int tiny_ioctl(struct tty_struct *tty, struct file *file,
 	}
 	return -ENOIOCTLCMD;
 }
-#undef tiny_ioctl
 
 /* the real tiny_ioctl function.  The above is done to get the small functions in the book */
-static int tiny_ioctl(struct tty_struct *tty, struct file *file,
-                      unsigned int cmd, unsigned long arg)
+static int tiny_ioctl(struct tty_struct *tty, unsigned int cmd,
+                      unsigned long arg)
 {
 	switch (cmd) {
 	case TIOCGSERIAL:
-		return tiny_ioctl_tiocgserial(tty, file, cmd, arg);
+		return tiny_ioctl_tiocgserial(tty, cmd, arg);
 	case TIOCMIWAIT:
-		return tiny_ioctl_tiocmiwait(tty, file, cmd, arg);
+		return tiny_ioctl_tiocmiwait(tty, cmd, arg);
 	case TIOCGICOUNT:
-		return tiny_ioctl_tiocgicount(tty, file, cmd, arg);
+		return tiny_ioctl_tiocgicount(tty, cmd, arg);
 	}
 
 	return -ENOIOCTLCMD;
@@ -509,7 +474,6 @@ static struct tty_operations serial_ops = {
 	.write = tiny_write,
 	.write_room = tiny_write_room,
 	.set_termios = tiny_set_termios,
-	.read_proc = tiny_read_proc,
 	.tiocmget = tiny_tiocmget,
 	.tiocmset = tiny_tiocmset,
 	.ioctl = tiny_ioctl,
@@ -522,8 +486,11 @@ static int __init tiny_init(void)
 	int retval;
 	int i;
 
+	/* allocate ports */
+	tiny_ports = kmalloc(TINY_TTY_MINORS * sizeof (struct tty_port), GFP_KERNEL);
+
 	/* allocate the tty driver */
-	tiny_tty_driver = alloc_tty_driver(TINY_TTY_MINORS);
+	tiny_tty_driver = tty_alloc_driver(TINY_TTY_MINORS, 0);
 	if (!tiny_tty_driver)
 		return -ENOMEM;
 
@@ -540,17 +507,19 @@ static int __init tiny_init(void)
 	tty_set_operations(tiny_tty_driver, &serial_ops);
 
 	/* register the tty driver */
+	for (i = 0; i < TINY_TTY_MINORS; ++i)
+	{
+		tty_port_init(&tiny_ports[i]);
+		tty_port_link_device(&tiny_ports[i], tiny_tty_driver, i);
+	}
+
 	retval = tty_register_driver(tiny_tty_driver);
 	if (retval) {
 		printk(KERN_ERR "failed to register tiny tty driver");
-		put_tty_driver(tiny_tty_driver);
+		tty_driver_kref_put(tiny_tty_driver);
 		return retval;
 	}
 
-	for (i = 0; i < TINY_TTY_MINORS; ++i)
-		tty_register_device(tiny_tty_driver, i, NULL);
-
-	printk(KERN_INFO DRIVER_DESC " " DRIVER_VERSION);
 	return retval;
 }
 
@@ -560,7 +529,11 @@ static void __exit tiny_exit(void)
 	int i;
 
 	for (i = 0; i < TINY_TTY_MINORS; ++i)
+	{
+		tty_port_destroy(&tiny_ports[i]);
 		tty_unregister_device(tiny_tty_driver, i);
+	}
+
 	tty_unregister_driver(tiny_tty_driver);
 
 	/* shut down all of the timers and free the memory */
@@ -578,6 +551,8 @@ static void __exit tiny_exit(void)
 			tiny_table[i] = NULL;
 		}
 	}
+
+    kfree(tiny_ports);
 }
 
 module_init(tiny_init);

@@ -15,7 +15,7 @@ CFLAGS += -I..
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 
-obj-m	:= tiny_tty.o tiny_serial.o
+obj-m	:= tiny_tty.o
 
 else
 
